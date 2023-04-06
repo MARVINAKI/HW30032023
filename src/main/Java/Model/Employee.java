@@ -1,32 +1,45 @@
 package Model;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
+
+import javax.persistence.*;
 
 @Getter
 @Setter
 @ToString
 @EqualsAndHashCode
+@Entity
+@NoArgsConstructor
+@Table(name = "employee")
 public class Employee {
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "id", nullable = false, insertable = false, updatable = false)
 	private int id;
+	@Column(name = "name", nullable = false, length = 50)
 	private String name;
-	private String last_name;
+	@Column(name = "last_name", nullable = false, length = 50)
+	private String lastName;
+	@Column(name = "age", nullable = false)
 	private int age;
-	private Integer city_id;
+	@Column(name = "city_id")
+	private Integer cityID;
 
-	public Employee(String name, String last_name, int age) {
+	public Employee(String name, String lastName, int age) {
 		this.name = name.trim();
-		this.last_name = last_name.trim();
+		this.lastName = lastName.trim();
 		this.age = Math.abs(age);
-		this.city_id = null;
+		this.cityID = null;
 	}
 
-	public Employee(String name, String last_name, int age, Integer city_id) {
+	public Employee(String name, String lastName, int age, Integer cityID) {
 		this.name = name.trim();
-		this.last_name = last_name.trim();
+		this.lastName = lastName.trim();
 		this.age = Math.abs(age);
-		this.city_id = Math.abs(city_id);
+		this.cityID = Math.abs(cityID);
 	}
+
+//	@ManyToOne(fetch = FetchType.LAZY)
+//	@JoinColumn(name = "id")
+//	private City city;
 }

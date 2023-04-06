@@ -1,80 +1,71 @@
 package DAO;
 
-import Config.ApplicationConnection;
 import Model.City;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Persistence;
+import javax.persistence.TypedQuery;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class CityDAOImpl implements CityDAO {
 
-	public static final ApplicationConnection appConnect = new ApplicationConnection();
+	private final EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("myPersistenceUnit");
+	private final EntityManager entityManager = entityManagerFactory.createEntityManager();
 
 	@Override
 	public boolean addCity(City city) {
-		try (PreparedStatement preparedStatement = appConnect.getPreparedStatement("INSERT INTO city(name) VALUES (?);")) {
-			preparedStatement.setString(1, city.getName());
-			preparedStatement.executeUpdate();
-			return true;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
-		}
+		entityManager.getTransaction().begin();
+		entityManager.persist(city);
+		entityManager.getTransaction().commit();
+		boolean response = entityManager.contains(city);
+		closeEntityManager();
+		return response;
 	}
 
 	@Override
 	public City findByID(int id) {
-		try (PreparedStatement preparedStatement = appConnect.getPreparedStatement("SELECT * FROM city WHERE id = ?;")) {
-			preparedStatement.setInt(1, id);
-			ResultSet resultSet = preparedStatement.executeQuery();
-			resultSet.next();
-			return new City(resultSet.getString(2));
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return null;
-		}
+		City city = entityManager.find(City.class, id);
+		entityManager.close();
+		entityManagerFactory.close();
+		return city == null ? new City() : city;
 	}
 
 	@Override
 	public Map<Integer, String> getAll() {
 		Map<Integer, String> cities = new LinkedHashMap<>();
-		try (PreparedStatement preparedStatement = appConnect.getPreparedStatement("SELECT * FROM city;")) {
-			ResultSet resultSet = preparedStatement.executeQuery();
-			while (resultSet.next()) {
-				cities.put(resultSet.getInt(1), resultSet.getString(2));
-			}
-			return cities;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return null;
+		String str = "SELECT c FROM City c";
+		TypedQuery<City> query = entityManager.createQuery(str, City.class);
+		for (City city : query.getResultList()) {
+			cities.put(city.getId(), city.getName());
 		}
+		closeEntityManager();
+		return cities;
 	}
 
 	@Override
 	public boolean updateByID(int id, City city) {
-		try (PreparedStatement preparedStatement = appConnect.getPreparedStatement("UPDATE city SET name = ? WHERE id = ?;")) {
-			preparedStatement.setString(1, city.getName());
-			preparedStatement.setInt(2, id);
-			preparedStatement.executeUpdate();
-			return true;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
-		}
+		entityManager.getTransaction().begin();
+		city = entityManager.merge(findByID(id));
+		entityManager.getTransaction().commit();
+		boolean response = entityManager.contains(city);
+		closeEntityManager();
+		return response;
 	}
 
 	@Override
 	public boolean deleteByID(int id) {
-		try (PreparedStatement preparedStatement = appConnect.getPreparedStatement("DELETE FROM city WHERE id = ?;")) {
-			preparedStatement.setInt(1, id);
-			preparedStatement.executeUpdate();
-			return true;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
-		}
+		entityManager.getTransaction().begin();
+		entityManager.remove(findByID(id));
+		entityManager.getTransaction().commit();
+		boolean response = !entityManager.contains(findByID(id));
+		closeEntityManager();
+		return response;
+	}
+
+	private void closeEntityManager() {
+		entityManager.close();
+		entityManagerFactory.close();
 	}
 }
