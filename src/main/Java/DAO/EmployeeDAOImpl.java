@@ -11,60 +11,89 @@ import java.util.Map;
 
 public class EmployeeDAOImpl implements EmployeeDAO {
 
-	private final EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("myPersistenceUnit");
-	private final EntityManager entityManager = entityManagerFactory.createEntityManager();
-
 	@Override
-	public boolean addEmployee(Employee employee) {
-		entityManager.getTransaction().begin();
-		entityManager.persist(employee);
-		entityManager.getTransaction().commit();
-		boolean response = entityManager.contains(employee);
-		closeEntityManager();
-		return response;
+	public void addEmployee(Employee employee) {
+		EntityManagerFactory emf = getEntityManagerFactory();
+		EntityManager em = getEntityManager(emf);
+		try {
+			em.getTransaction().begin();
+			em.persist(employee);
+			em.getTransaction().commit();
+		} finally {
+			closeEntityManager(em, emf);
+		}
 	}
 
 	@Override
 	public Employee findById(int id) {
-		Employee employee = entityManager.find(Employee.class, id);
-		closeEntityManager();
-		return employee == null ? new Employee() : employee;
+		EntityManagerFactory emf = getEntityManagerFactory();
+		EntityManager em = getEntityManager(emf);
+		try {
+			Employee employee = em.find(Employee.class, id);
+			return employee == null ? new Employee() : employee;
+		} finally {
+			closeEntityManager(em, emf);
+		}
 	}
 
 	@Override
 	public Map<Integer, Employee> getAll() {
+		EntityManagerFactory emf = getEntityManagerFactory();
+		EntityManager em = getEntityManager(emf);
 		Map<Integer, Employee> employees = new LinkedHashMap<>();
 		String str = "SELECT e FROM Employee e";
-		TypedQuery<Employee> query = entityManager.createQuery(str, Employee.class);
-		for (Employee employee : query.getResultList()) {
-			employees.put(employee.getId(), employee);
+		try {
+			TypedQuery<Employee> query = em.createQuery(str, Employee.class);
+			for (Employee employee : query.getResultList()) {
+				employees.put(employee.getId(), employee);
+			}
+			return employees;
+		} finally {
+			closeEntityManager(em, emf);
 		}
-		closeEntityManager();
-		return employees;
 	}
 
 	@Override
-	public boolean updateById(int id, Employee employee) {
-		entityManager.getTransaction().begin();
-		employee = entityManager.merge(entityManager.find(Employee.class, id));
-		entityManager.getTransaction().commit();
-		boolean response = entityManager.contains(employee);
-		closeEntityManager();
-		return response;
+	public void updateById(int id, Employee employee) {
+		EntityManagerFactory emf = getEntityManagerFactory();
+		EntityManager em = getEntityManager(emf);
+		try {
+			em.getTransaction().begin();
+			Employee mergedEmployee = em.find(Employee.class, id);
+			mergedEmployee.setName(employee.getName());
+			mergedEmployee.setLastName(employee.getLastName());
+			mergedEmployee.setAge(employee.getAge());
+			mergedEmployee.setCityID(employee.getCityID());
+			em.merge(mergedEmployee);
+			em.getTransaction().commit();
+		} finally {
+			closeEntityManager(em, emf);
+		}
 	}
 
 	@Override
-	public boolean deleteById(int id) {
-		entityManager.getTransaction().begin();
-		entityManager.remove(entityManager.find(Employee.class, id));
-		entityManager.getTransaction().commit();
-		boolean response = !entityManager.contains(entityManager.find(Employee.class, id));
-		closeEntityManager();
-		return response;
+	public void deleteById(int id) {
+		EntityManagerFactory emf = getEntityManagerFactory();
+		EntityManager em = getEntityManager(emf);
+		try {
+			em.getTransaction().begin();
+			em.remove(em.find(Employee.class, id));
+			em.getTransaction().commit();
+		} finally {
+			closeEntityManager(em, emf);
+		}
 	}
 
-	private void closeEntityManager() {
-		entityManager.close();
-		entityManagerFactory.close();
+	private static EntityManagerFactory getEntityManagerFactory() {
+		return Persistence.createEntityManagerFactory("myPersistenceUnit");
+	}
+
+	private static EntityManager getEntityManager(EntityManagerFactory emf) {
+		return emf.createEntityManager();
+	}
+
+	private void closeEntityManager(EntityManager em, EntityManagerFactory emf) {
+		em.close();
+		emf.close();
 	}
 }
