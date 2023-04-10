@@ -2,61 +2,64 @@ package DAO;
 
 import Model.City;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.Persistence;
-import javax.persistence.TypedQuery;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import javax.persistence.*;
+import java.util.List;
 
 public class CityDAOImpl implements CityDAO {
 
+	private static final EntityManagerFactory emf = Persistence.createEntityManagerFactory("myPersistenceUnit");
+
 	@Override
 	public void addCity(City city) {
-		EntityManagerFactory emf = getEntityManagerFactory();
-		EntityManager em = getEntityManager(emf);
+		EntityManager em = getEntityManager();
 		try {
 			em.getTransaction().begin();
 			em.persist(city);
 			em.getTransaction().commit();
 		} finally {
-			closeEntityManager(em, emf);
+			em.close();
 		}
 	}
 
 	@Override
 	public City findByID(int id) {
-		EntityManagerFactory emf = getEntityManagerFactory();
-		EntityManager em = getEntityManager(emf);
+		EntityManager em = getEntityManager();
 		try {
-			City city = em.find(City.class, id);
-			return city == null ? new City() : city;
+			return em.find(City.class, id);
 		} finally {
-			closeEntityManager(em, emf);
+			em.close();
 		}
 	}
 
 	@Override
-	public Map<Integer, String> getAll() {
-		EntityManagerFactory emf = getEntityManagerFactory();
-		EntityManager em = getEntityManager(emf);
-		Map<Integer, String> cities = new LinkedHashMap<>();
-		String str = "SELECT c FROM City c";
+	public int findIdByCity(City city) {
+		EntityManager em = getEntityManager();
 		try {
-			TypedQuery<City> query = em.createQuery(str, City.class);
-			for (City city : query.getResultList()) {
-				cities.put(city.getId(), city.getName());
+			TypedQuery<City> query = em.createQuery("SELECT c FROM City c", City.class);
+			if (query.getResultList().contains(city)) {
+				return query.getResultStream().filter(x -> x.equals(city)).findFirst().get().getId();
+			} else {
+				throw new EntityNotFoundException("Город не найден в базе");
 			}
-			return cities;
 		} finally {
-			closeEntityManager(em, emf);
+			em.close();
+		}
+	}
+
+	@Override
+	public List<City> getAll() {
+		EntityManager em = getEntityManager();
+		try {
+			TypedQuery<City> query = em.createQuery("SELECT c FROM City c", City.class);
+			return query.getResultList();
+		} finally {
+			em.close();
 		}
 	}
 
 	@Override
 	public void updateByID(int id, City city) {
-		EntityManagerFactory emf = getEntityManagerFactory();
-		EntityManager em = getEntityManager(emf);
+		EntityManager em = getEntityManager();
 		try {
 			em.getTransaction().begin();
 			City mergedCity = em.find(City.class, id);
@@ -64,33 +67,28 @@ public class CityDAOImpl implements CityDAO {
 			em.merge(mergedCity);
 			em.getTransaction().commit();
 		} finally {
-			closeEntityManager(em, emf);
+			em.close();
 		}
 	}
 
 	@Override
 	public void deleteByID(int id) {
-		EntityManagerFactory emf = getEntityManagerFactory();
-		EntityManager em = getEntityManager(emf);
+		EntityManager em = getEntityManager();
 		try {
 			em.getTransaction().begin();
-			em.remove(findByID(id));
+			em.remove(em.find(City.class, id));
 			em.getTransaction().commit();
 		} finally {
-			closeEntityManager(em, emf);
+			em.close();
 		}
 	}
 
-	private static EntityManagerFactory getEntityManagerFactory() {
-		return Persistence.createEntityManagerFactory("myPersistenceUnit");
-	}
-
-	private static EntityManager getEntityManager(EntityManagerFactory emf) {
-		return emf.createEntityManager();
-	}
-
-	private void closeEntityManager(EntityManager em, EntityManagerFactory emf) {
-		em.close();
+	@Override
+	public final void close() {
 		emf.close();
+	}
+
+	private static EntityManager getEntityManager() {
+		return CityDAOImpl.emf.createEntityManager();
 	}
 }

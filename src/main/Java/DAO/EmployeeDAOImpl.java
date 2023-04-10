@@ -2,98 +2,96 @@ package DAO;
 
 import Model.Employee;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.Persistence;
-import javax.persistence.TypedQuery;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import javax.persistence.*;
+import java.util.List;
 
 public class EmployeeDAOImpl implements EmployeeDAO {
 
+	private static final EntityManagerFactory emf = Persistence.createEntityManagerFactory("myPersistenceUnit");
+
 	@Override
 	public void addEmployee(Employee employee) {
-		EntityManagerFactory emf = getEntityManagerFactory();
-		EntityManager em = getEntityManager(emf);
+		EntityManager em = getEntityManager();
 		try {
 			em.getTransaction().begin();
 			em.persist(employee);
 			em.getTransaction().commit();
 		} finally {
-			closeEntityManager(em, emf);
+			em.close();
 		}
 	}
 
 	@Override
 	public Employee findById(int id) {
-		EntityManagerFactory emf = getEntityManagerFactory();
-		EntityManager em = getEntityManager(emf);
+		EntityManager em = getEntityManager();
 		try {
-			Employee employee = em.find(Employee.class, id);
-			return employee == null ? new Employee() : employee;
+			return em.find(Employee.class, id);
 		} finally {
-			closeEntityManager(em, emf);
+			em.close();
 		}
 	}
 
 	@Override
-	public Map<Integer, Employee> getAll() {
-		EntityManagerFactory emf = getEntityManagerFactory();
-		EntityManager em = getEntityManager(emf);
-		Map<Integer, Employee> employees = new LinkedHashMap<>();
-		String str = "SELECT e FROM Employee e";
+	public int findIdByEmployee(Employee employee) {
+		EntityManager em = getEntityManager();
 		try {
-			TypedQuery<Employee> query = em.createQuery(str, Employee.class);
-			for (Employee employee : query.getResultList()) {
-				employees.put(employee.getId(), employee);
+			TypedQuery<Employee> query = em.createQuery("SELECT e FROM Employee e", Employee.class);
+			if (query.getResultList().contains(employee)) {
+				return query.getResultStream().filter(x -> x.equals(employee)).findFirst().get().getId();
+			} else {
+				throw new EntityNotFoundException("Сотрудник не найден в базе");
 			}
-			return employees;
 		} finally {
-			closeEntityManager(em, emf);
+			em.close();
+		}
+	}
+
+	@Override
+	public List<Employee> getAll() {
+		EntityManager em = getEntityManager();
+		try {
+			TypedQuery<Employee> query = em.createQuery("SELECT e FROM Employee e", Employee.class);
+			return query.getResultList();
+		} finally {
+			em.close();
 		}
 	}
 
 	@Override
 	public void updateById(int id, Employee employee) {
-		EntityManagerFactory emf = getEntityManagerFactory();
-		EntityManager em = getEntityManager(emf);
+		EntityManager em = getEntityManager();
 		try {
 			em.getTransaction().begin();
 			Employee mergedEmployee = em.find(Employee.class, id);
 			mergedEmployee.setName(employee.getName());
 			mergedEmployee.setLastName(employee.getLastName());
 			mergedEmployee.setAge(employee.getAge());
-			mergedEmployee.setCityID(employee.getCityID());
+			mergedEmployee.setCity(employee.getCity());
 			em.merge(mergedEmployee);
 			em.getTransaction().commit();
 		} finally {
-			closeEntityManager(em, emf);
+			em.close();
 		}
 	}
 
 	@Override
 	public void deleteById(int id) {
-		EntityManagerFactory emf = getEntityManagerFactory();
-		EntityManager em = getEntityManager(emf);
+		EntityManager em = getEntityManager();
 		try {
 			em.getTransaction().begin();
 			em.remove(em.find(Employee.class, id));
 			em.getTransaction().commit();
 		} finally {
-			closeEntityManager(em, emf);
+			em.close();
 		}
 	}
 
-	private static EntityManagerFactory getEntityManagerFactory() {
-		return Persistence.createEntityManagerFactory("myPersistenceUnit");
-	}
-
-	private static EntityManager getEntityManager(EntityManagerFactory emf) {
-		return emf.createEntityManager();
-	}
-
-	private void closeEntityManager(EntityManager em, EntityManagerFactory emf) {
-		em.close();
+	@Override
+	public void close() {
 		emf.close();
+	}
+
+	private static EntityManager getEntityManager() {
+		return EmployeeDAOImpl.emf.createEntityManager();
 	}
 }

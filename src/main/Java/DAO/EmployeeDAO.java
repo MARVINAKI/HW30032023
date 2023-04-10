@@ -2,6 +2,7 @@ package DAO;
 
 import Model.Employee;
 
+import java.util.List;
 import java.util.Map;
 
 public interface EmployeeDAO {
@@ -10,9 +11,13 @@ public interface EmployeeDAO {
 
 	Employee findById(int id);
 
-	Map<Integer, Employee> getAll();
+	int findIdByEmployee(Employee employee);
+
+	List<Employee> getAll();
 
 	void updateById(int id, Employee employee);
 
 	void deleteById(int id);
+
+	void close();
 }
