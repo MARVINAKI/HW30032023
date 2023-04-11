@@ -39,7 +39,7 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 			if (query.getResultList().contains(employee)) {
 				return query.getResultStream().filter(x -> x.equals(employee)).findFirst().get().getId();
 			} else {
-				throw new EntityNotFoundException("Сотрудник не найден в базе");
+				throw new EntityNotFoundException();
 			}
 		} finally {
 			em.close();
