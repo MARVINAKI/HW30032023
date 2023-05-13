@@ -1,109 +1,97 @@
 package DAO;
 
-import Config.ApplicationConnection;
 import Model.Employee;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Types;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import javax.persistence.*;
+import java.util.List;
 
 public class EmployeeDAOImpl implements EmployeeDAO {
 
-	private final ApplicationConnection appConnection = new ApplicationConnection();
+	private static final EntityManagerFactory emf = Persistence.createEntityManagerFactory("myPersistenceUnit");
 
 	@Override
-	public boolean addEmployee(Employee employee) {
-		try (PreparedStatement preparedStatement = appConnection.getPreparedStatement("INSERT INTO employee(name, last_name, age, city_id) VALUES (?, ?, ?, ?);")) {
-			preparedStatement.setString(1, employee.getName());
-			preparedStatement.setString(2, employee.getLast_name());
-			preparedStatement.setInt(3, employee.getAge());
-			if (employee.getCity_id() == null || String.valueOf(employee.getCity_id()).trim().isEmpty()) {
-				preparedStatement.setNull(4, Types.INTEGER);
-			} else {
-				preparedStatement.setInt(4, employee.getCity_id()); // если не выходит за рамки city id!!!
-			}
-			preparedStatement.executeUpdate();
-			return true;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
+	public void addEmployee(Employee employee) {
+		EntityManager em = getEntityManager();
+		try {
+			em.getTransaction().begin();
+			em.persist(employee);
+			em.getTransaction().commit();
+		} finally {
+			em.close();
 		}
 	}
 
 	@Override
 	public Employee findById(int id) {
-		Employee employee = null;
-		try (PreparedStatement preparedStatement = appConnection.getPreparedStatement("SELECT * FROM employee WHERE id = ?;")) {
-			preparedStatement.setInt(1, id);
-			ResultSet resultSet = preparedStatement.executeQuery();
-			resultSet.next();
-			employee = new Employee(
-					resultSet.getString(2),
-					resultSet.getString(3),
-					resultSet.getInt(4),
-					resultSet.getInt(5));
-			employee.setId(resultSet.getInt(1));
-			return employee;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return employee;
+		EntityManager em = getEntityManager();
+		try {
+			return em.find(Employee.class, id);
+		} finally {
+			em.close();
 		}
 	}
 
 	@Override
-	public Map<Integer, Employee> getAll() {
-		Employee employee;
-		Map<Integer, Employee> employees = new LinkedHashMap<>();
-		try (PreparedStatement preparedStatement = appConnection.getPreparedStatement("SELECT * FROM employee;")) {
-			ResultSet resultSet = preparedStatement.executeQuery();
-			while (resultSet.next()) {
-				employee = new Employee(
-						resultSet.getString(2),
-						resultSet.getString(3),
-						resultSet.getInt(4),
-						resultSet.getInt(5));
-				employee.setId(resultSet.getInt("id"));
-				employees.put(resultSet.getInt("id"), employee);
-			}
-			return employees;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return employees;
-		}
-	}
-
-	@Override
-	public boolean updateById(int id, Employee employee) {
-		try (PreparedStatement preparedStatement = appConnection.getPreparedStatement("UPDATE employee SET name = ?, last_name = ?, age = ?, city_id = ? WHERE id = ?")) {
-			preparedStatement.setString(1, employee.getName());
-			preparedStatement.setString(2, employee.getLast_name());
-			preparedStatement.setInt(3, employee.getAge());
-			if (employee.getCity_id() == null || String.valueOf(employee.getCity_id()).trim().isEmpty()) {
-				preparedStatement.setNull(4, Types.INTEGER);
+	public int findIdByEmployee(Employee employee) {
+		EntityManager em = getEntityManager();
+		try {
+			TypedQuery<Employee> query = em.createQuery("SELECT e FROM Employee e", Employee.class);
+			if (query.getResultList().contains(employee)) {
+				return query.getResultStream().filter(x -> x.equals(employee)).findFirst().get().getId();
 			} else {
-				preparedStatement.setInt(4, employee.getCity_id()); // если не выходит за рамки city id!!!
+				throw new EntityNotFoundException();
 			}
-			preparedStatement.setInt(5, id);
-			preparedStatement.executeUpdate();
-			return true;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
+		} finally {
+			em.close();
 		}
 	}
 
 	@Override
-	public boolean deleteById(int id) {
-		try (PreparedStatement preparedStatement = appConnection.getPreparedStatement("DELETE FROM employee WHERE id = ?;")) {
-			preparedStatement.setInt(1, id);
-			preparedStatement.executeUpdate();
-			return true;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
+	public List<Employee> getAll() {
+		EntityManager em = getEntityManager();
+		try {
+			TypedQuery<Employee> query = em.createQuery("SELECT e FROM Employee e", Employee.class);
+			return query.getResultList();
+		} finally {
+			em.close();
 		}
+	}
+
+	@Override
+	public void updateById(int id, Employee employee) {
+		EntityManager em = getEntityManager();
+		try {
+			em.getTransaction().begin();
+			Employee mergedEmployee = em.find(Employee.class, id);
+			mergedEmployee.setName(employee.getName());
+			mergedEmployee.setLastName(employee.getLastName());
+			mergedEmployee.setAge(employee.getAge());
+			mergedEmployee.setCity(employee.getCity());
+			em.merge(mergedEmployee);
+			em.getTransaction().commit();
+		} finally {
+			em.close();
+		}
+	}
+
+	@Override
+	public void deleteById(int id) {
+		EntityManager em = getEntityManager();
+		try {
+			em.getTransaction().begin();
+			em.remove(em.find(Employee.class, id));
+			em.getTransaction().commit();
+		} finally {
+			em.close();
+		}
+	}
+
+	@Override
+	public void close() {
+		emf.close();
+	}
+
+	private static EntityManager getEntityManager() {
+		return EmployeeDAOImpl.emf.createEntityManager();
 	}
 }

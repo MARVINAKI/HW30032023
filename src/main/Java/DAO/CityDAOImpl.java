@@ -1,80 +1,94 @@
 package DAO;
 
-import Config.ApplicationConnection;
 import Model.City;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import javax.persistence.*;
+import java.util.List;
 
 public class CityDAOImpl implements CityDAO {
 
-	public static final ApplicationConnection appConnect = new ApplicationConnection();
+	private static final EntityManagerFactory emf = Persistence.createEntityManagerFactory("myPersistenceUnit");
 
 	@Override
-	public boolean addCity(City city) {
-		try (PreparedStatement preparedStatement = appConnect.getPreparedStatement("INSERT INTO city(name) VALUES (?);")) {
-			preparedStatement.setString(1, city.getName());
-			preparedStatement.executeUpdate();
-			return true;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
+	public void addCity(City city) {
+		EntityManager em = getEntityManager();
+		try {
+			em.getTransaction().begin();
+			em.persist(city);
+			em.getTransaction().commit();
+		} finally {
+			em.close();
 		}
 	}
 
 	@Override
 	public City findByID(int id) {
-		try (PreparedStatement preparedStatement = appConnect.getPreparedStatement("SELECT * FROM city WHERE id = ?;")) {
-			preparedStatement.setInt(1, id);
-			ResultSet resultSet = preparedStatement.executeQuery();
-			resultSet.next();
-			return new City(resultSet.getString(2));
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return null;
+		EntityManager em = getEntityManager();
+		try {
+			return em.find(City.class, id);
+		} finally {
+			em.close();
 		}
 	}
 
 	@Override
-	public Map<Integer, String> getAll() {
-		Map<Integer, String> cities = new LinkedHashMap<>();
-		try (PreparedStatement preparedStatement = appConnect.getPreparedStatement("SELECT * FROM city;")) {
-			ResultSet resultSet = preparedStatement.executeQuery();
-			while (resultSet.next()) {
-				cities.put(resultSet.getInt(1), resultSet.getString(2));
+	public int findIdByCity(City city) {
+		EntityManager em = getEntityManager();
+		try {
+			TypedQuery<City> query = em.createQuery("SELECT c FROM City c", City.class);
+			if (query.getResultList().contains(city)) {
+				return query.getResultStream().filter(x -> x.equals(city)).findFirst().get().getId();
+			} else {
+				throw new EntityNotFoundException("Город не найден в базе");
 			}
-			return cities;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return null;
+		} finally {
+			em.close();
 		}
 	}
 
 	@Override
-	public boolean updateByID(int id, City city) {
-		try (PreparedStatement preparedStatement = appConnect.getPreparedStatement("UPDATE city SET name = ? WHERE id = ?;")) {
-			preparedStatement.setString(1, city.getName());
-			preparedStatement.setInt(2, id);
-			preparedStatement.executeUpdate();
-			return true;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
+	public List<City> getAll() {
+		EntityManager em = getEntityManager();
+		try {
+			TypedQuery<City> query = em.createQuery("SELECT c FROM City c", City.class);
+			return query.getResultList();
+		} finally {
+			em.close();
 		}
 	}
 
 	@Override
-	public boolean deleteByID(int id) {
-		try (PreparedStatement preparedStatement = appConnect.getPreparedStatement("DELETE FROM city WHERE id = ?;")) {
-			preparedStatement.setInt(1, id);
-			preparedStatement.executeUpdate();
-			return true;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
+	public void updateByID(int id, City city) {
+		EntityManager em = getEntityManager();
+		try {
+			em.getTransaction().begin();
+			City mergedCity = em.find(City.class, id);
+			mergedCity.setName(city.getName());
+			em.merge(mergedCity);
+			em.getTransaction().commit();
+		} finally {
+			em.close();
 		}
+	}
+
+	@Override
+	public void deleteByID(int id) {
+		EntityManager em = getEntityManager();
+		try {
+			em.getTransaction().begin();
+			em.remove(em.find(City.class, id));
+			em.getTransaction().commit();
+		} finally {
+			em.close();
+		}
+	}
+
+	@Override
+	public final void close() {
+		emf.close();
+	}
+
+	private static EntityManager getEntityManager() {
+		return CityDAOImpl.emf.createEntityManager();
 	}
 }

@@ -2,17 +2,22 @@ package DAO;
 
 import Model.Employee;
 
+import java.util.List;
 import java.util.Map;
 
 public interface EmployeeDAO {
 
-	boolean addEmployee(Employee employee);
+	void addEmployee(Employee employee);
 
 	Employee findById(int id);
 
-	Map<Integer, Employee> getAll();
+	int findIdByEmployee(Employee employee);
 
-	boolean updateById(int id, Employee employee);
+	List<Employee> getAll();
 
-	boolean deleteById(int id);
+	void updateById(int id, Employee employee);
+
+	void deleteById(int id);
+
+	void close();
 }
